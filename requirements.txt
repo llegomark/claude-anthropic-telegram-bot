@@ -2,3 +2,4 @@ python-telegram-bot==21.3
 python-dotenv==1.0.1
 anthropic==0.30.1
 tenacity==8.5.0
+aiofiles==24.1.0

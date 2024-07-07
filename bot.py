@@ -264,14 +264,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         async def generate_ai_response():
             return await generate_response(context.user_data['messages'], system_message)
 
-        async def save_interaction():
-            save_user_history(user_id, context.user_data['messages'], scenario)
-
         start_time = time.time()
-        response, _ = await asyncio.gather(
-            generate_ai_response(),
-            save_interaction()
-        )
+        response = await generate_ai_response()
         end_time = time.time()
 
         typing_task.cancel()
@@ -284,6 +278,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         context.user_data['messages'].append(
             {"role": "assistant", "content": response})
+
+        # Save the interaction asynchronously after appending the AI's response
+        asyncio.create_task(save_user_history(
+            user_id, context.user_data['messages'], scenario))
 
         await send_message_with_retry(context, chat_id, response)
 

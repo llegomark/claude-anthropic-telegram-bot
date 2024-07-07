@@ -2,6 +2,8 @@ import os
 import json
 import shutil
 import datetime
+import logging
+import aiofiles
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,6 +11,8 @@ load_dotenv()
 WHITELIST_FILE = "whitelist.txt"
 HISTORY_DIR = "user_histories"
 AUTH_CODE = os.getenv("AUTH_CODE")
+
+logger = logging.getLogger(__name__)
 
 if not AUTH_CODE:
     raise ValueError(
@@ -27,11 +31,17 @@ def authenticate_user(user_id):
         f.write(f"{user_id}\n")
 
 
-def save_user_history(user_id, messages, scenario):
-    if not os.path.exists(HISTORY_DIR):
-        os.makedirs(HISTORY_DIR)
-    with open(f"{HISTORY_DIR}/{user_id}_{scenario}_history.json", "w") as f:
-        json.dump(messages, f)
+async def save_user_history(user_id, messages, scenario):
+    try:
+        if not os.path.exists(HISTORY_DIR):
+            os.makedirs(HISTORY_DIR)
+        async with aiofiles.open(f"{HISTORY_DIR}/{user_id}_{scenario}_history.json", "w") as f:
+            await f.write(json.dumps(messages, indent=2))
+        logger.info(f"Successfully saved history for user {
+                    user_id} in scenario {scenario}")
+    except Exception as e:
+        logger.error(f"Error saving history for user {
+                     user_id} in scenario {scenario}: {str(e)}")
 
 
 def load_user_history(user_id, scenario):
