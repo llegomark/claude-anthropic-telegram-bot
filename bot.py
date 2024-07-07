@@ -148,7 +148,9 @@ async def change_scenario(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Sibling", callback_data='sibling'),
          InlineKeyboardButton("Coach", callback_data='coach')],
         [InlineKeyboardButton("Guidance Counselor", callback_data='guidance_counselor'),
-         InlineKeyboardButton("Socratic Tutor", callback_data='socratic_tutor')]
+         InlineKeyboardButton("Socratic Tutor", callback_data='socratic_tutor')],
+        [InlineKeyboardButton("Mental Health Advocate",
+                              callback_data='mental_health_advocate')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_message(
@@ -162,6 +164,7 @@ async def change_scenario(update: Update, context: ContextTypes.DEFAULT_TYPE):
              "🏋️ Coach: Get motivated by your dedicated high school sports coach\n"
              "🧠 Guidance Counselor: Discuss your concerns with the school counselor\n"
              "🎓 Socratic Tutor: Learn through guided questioning\n\n"
+             "💚 Mental Health Advocate: Talk to a compassionate mental health professional\n\n"
              "Select an option to change who you're talking to:",
         reply_markup=reply_markup
     )
@@ -186,7 +189,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         'sibling': "Sibling - You're now playing with your 6-year-old younger brother!",
         'coach': "Coach - You're now getting motivated by your dedicated high school sports coach!",
         'guidance_counselor': "Guidance Counselor - You're now discussing your concerns with the school counselor!",
-        'socratic_tutor': "Socratic Tutor - You're now learning through guided questioning!"
+        'socratic_tutor': "Socratic Tutor - You're now learning through guided questioning!",
+        'mental_health_advocate': "Mental Health Advocate - You're now talking to a compassionate mental health professional!"
     }
 
     await query.edit_message_text(
