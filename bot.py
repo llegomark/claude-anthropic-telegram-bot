@@ -7,7 +7,7 @@ from telegram.constants import ChatAction
 from telegram.error import NetworkError, TimedOut
 from dotenv import load_dotenv
 import os
-from anthropic_api import generate_response
+from groq_api import generate_response
 from utils import format_message, truncate_message, split_long_message, sanitize_input
 from auth import (
     is_authenticated, authenticate_user, save_user_history, load_user_history, AUTH_CODE, save_user_scenario, load_user_scenario,
@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 
 API_TIMEOUT = 30
 TYPING_INTERVAL = 5
-
-# Retry decorator for send_message
 
 
 @retry(
@@ -58,7 +56,6 @@ async def send_message_with_retry(context, chat_id, text, reply_markup=None):
             )
     except Exception as e:
         logger.error(f"Error sending message: {str(e)}")
-        # If Markdown parsing fails, send without parsing
         truncated_text = truncate_message(text)
         await context.bot.send_message(
             chat_id=chat_id,
@@ -71,8 +68,6 @@ async def send_typing_with_message(context: ContextTypes.DEFAULT_TYPE, chat_id: 
     await context.bot.send_chat_action(chat_id=chat_id, action=ChatAction.TYPING)
     await asyncio.sleep(TYPING_INTERVAL)
     await send_message_with_retry(context, chat_id, message)
-
-# Command handlers
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -129,13 +124,11 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, Argi, but I can only assist authenticated users. Please provide the secret code first.")
         return
 
-    # Archive all scenarios instead of clearing
     for scenario in SCENARIOS.keys():
         archive_user_history(user_id, scenario)
 
-    # Clear the current context
     context.user_data['messages'] = []
-    context.user_data['scenario'] = 'boyfriend'  # Reset to default scenario
+    context.user_data['scenario'] = 'boyfriend'
 
     await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been reset.")
 
@@ -261,11 +254,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scenario = context.user_data['scenario']
         system_message = SCENARIOS[scenario]
 
-        async def generate_ai_response():
-            return await generate_response(context.user_data['messages'], system_message)
-
         start_time = time.time()
-        response = await generate_ai_response()
+        response = await generate_response(context.user_data['messages'], system_message)
         end_time = time.time()
 
         typing_task.cancel()
@@ -279,7 +269,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['messages'].append(
             {"role": "assistant", "content": response})
 
-        # Save the interaction asynchronously after appending the AI's response
         asyncio.create_task(save_user_history(
             user_id, context.user_data['messages'], scenario))
 
@@ -287,19 +276,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         logger.info(f"Sent response to user {user_id}: {response[:20]}...")
 
-    except asyncio.TimeoutError:
-        logger.error(f"API request timed out for user {user_id}")
-        await send_message_with_retry(context, chat_id, "I'm sorry, Argi, but it's taking me longer than usual to respond. Please try again in a moment.")
     except Exception as e:
         logger.error(f"Error handling message for user {
                      user_id}: {str(e)}", exc_info=True)
-        error_message = "I apologize, Argi, but I've encountered an error while processing your request. "
-        if isinstance(e, NetworkError):
-            error_message += "There was a network error. Please check your connection and try again."
-        elif isinstance(e, TimedOut):
-            error_message += "The request timed out. Please try again in a moment."
-        else:
-            error_message += "Please try again later."
+        error_message = "I apologize, Argi, but I've encountered an error while processing your request. Please try again later."
         await send_message_with_retry(context, chat_id, error_message)
 
 
