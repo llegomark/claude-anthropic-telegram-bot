@@ -79,7 +79,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         commands = (
             "🌟 Available commands:\n"
             "/start - Begin a fresh conversation\n"
-            "/help - Learn more about Claude\n"
+            "/help - Learn more about Evander\n"
             "/clear - Reset your conversation history (use with caution!)\n"
             "/scenario - Change who you're talking to"
         )
