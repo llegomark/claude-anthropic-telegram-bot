@@ -7,7 +7,7 @@ from telegram.constants import ChatAction
 from telegram.error import NetworkError, TimedOut
 from dotenv import load_dotenv
 import os
-from groq_api import generate_response
+from ai_providers import get_generate_response
 from utils import format_message, truncate_message, split_long_message, sanitize_input
 from auth import (
     is_authenticated, authenticate_user, save_user_history, load_user_history, AUTH_CODE, save_user_scenario, load_user_scenario,
@@ -76,20 +76,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scenario = load_user_scenario(user_id)
         context.user_data['scenario'] = scenario
         context.user_data['messages'] = load_user_history(user_id, scenario)
+        context.user_data['ai_provider'] = context.user_data.get(
+            'ai_provider', 'anthropic')
 
         commands = (
             "🌟 Available commands:\n"
             "/start - Begin a fresh conversation\n"
             "/help - Learn more about Evander\n"
             "/clear - Reset your conversation history (use with caution!)\n"
-            "/scenario - Change who you're talking to"
+            "/scenario - Change who you're talking to\n"
+            "/provider - Switch between AI providers (Anthropic or Groq)"
         )
 
         message = (
             f"Welcome back, Argi! 🎭\n\n"
-            f"You're currently chatting with your '{
-                scenario}'. Ready for some engaging conversation?\n\n"
-            f"Remember, you can change who you're talking to anytime with /scenario.\n\n"
+            f"You're currently chatting with your '{scenario}' using the {
+                context.user_data['ai_provider'].capitalize()} AI provider. Ready for some engaging conversation?\n\n"
+            f"Remember, you can change who you're talking to anytime with /scenario and switch AI providers with /provider.\n\n"
             f"{commands}\n\n"
             f"Now, what would you like to chat about with your {scenario}? 😃"
         )
@@ -111,8 +114,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /help - Show this help message
     /clear - Warning: This will reset all your conversation histories across all scenarios
     /scenario - Change who you're talking to
+    /provider - Switch between AI providers (Anthropic or Groq)
 
-    You can also send me any message, and I'll respond based on the current scenario!
+    You can also send me any message, and I'll respond based on the current scenario and selected AI provider!
     """
 
     await send_message_with_retry(context, update.effective_chat.id, help_text)
@@ -129,8 +133,9 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['messages'] = []
     context.user_data['scenario'] = 'boyfriend'
+    context.user_data['ai_provider'] = 'anthropic'
 
-    await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been reset.")
+    await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been reset. The AI provider has been set to Anthropic (default).")
 
 
 async def change_scenario(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -169,34 +174,68 @@ async def change_scenario(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def change_provider(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not is_authenticated(user_id):
+        await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, Argi, but I can only assist authenticated users. Please provide the secret code first.")
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("Anthropic (Claude)", callback_data='anthropic'),
+         InlineKeyboardButton("Groq (LLaMA)", callback_data='groq')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Choose your AI provider:\n\n"
+             "🧠 Anthropic (Claude): Known for its strong reasoning and instruction-following capabilities\n"
+             "🚀 Groq (LLaMA): Known for its fast inference and broad knowledge base\n\n"
+             "Select an option to change your AI provider:",
+        reply_markup=reply_markup
+    )
+
+
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
     user_id = update.effective_user.id
-    new_scenario = query.data
-    old_scenario = context.user_data.get('scenario', 'boyfriend')
-    context.user_data['scenario'] = new_scenario
-    context.user_data['messages'] = load_user_history(user_id, new_scenario)
-    save_user_scenario(user_id, new_scenario)
+    data = query.data
 
-    scenario_descriptions = {
-        'demon_slayer': "Demon Slayer - You're now chatting with a brave warrior from early 20th century Japan!",
-        'boyfriend': "Boyfriend - You're now talking to your caring high school boyfriend!",
-        'best_friend': "Best Friend - You're now hanging out with your supportive and fun-loving best friend, Tiffany!",
-        'mentor': "Mentor - You're now seeking wisdom from your high school teacher!",
-        'sibling': "Sibling - You're now playing with your 6-year-old younger brother!",
-        'coach': "Coach - You're now getting motivated by your dedicated high school sports coach!",
-        'guidance_counselor': "Guidance Counselor - You're now discussing your concerns with the school counselor!",
-        'socratic_tutor': "Socratic Tutor - You're now learning through guided questioning!",
-        'mental_health_advocate': "Mental Health Advocate - You're now talking to a compassionate mental health professional!"
-    }
+    if data in ['anthropic', 'groq']:
+        old_provider = context.user_data.get('ai_provider', 'anthropic')
+        context.user_data['ai_provider'] = data
+        await query.edit_message_text(
+            text=f"You've switched from {old_provider.capitalize()} to {
+                data.capitalize()} as your AI provider.\n\n"
+            f"Your conversation will now use the {
+                data.capitalize()} model. Enjoy chatting!"
+        )
+    else:
+        new_scenario = data
+        old_scenario = context.user_data.get('scenario', 'boyfriend')
+        context.user_data['scenario'] = new_scenario
+        context.user_data['messages'] = load_user_history(
+            user_id, new_scenario)
+        save_user_scenario(user_id, new_scenario)
 
-    await query.edit_message_text(
-        text=f"You've switched from talking to your {
-            old_scenario} to your {scenario_descriptions[new_scenario]}\n\n"
-        f"Your conversation history has been updated to match. Enjoy chatting!"
-    )
+        scenario_descriptions = {
+            'demon_slayer': "Demon Slayer - You're now chatting with a brave warrior from early 20th century Japan!",
+            'boyfriend': "Boyfriend - You're now talking to your caring high school boyfriend!",
+            'best_friend': "Best Friend - You're now hanging out with your supportive and fun-loving best friend, Tiffany!",
+            'mentor': "Mentor - You're now seeking wisdom from your high school teacher!",
+            'sibling': "Sibling - You're now playing with your 6-year-old younger brother!",
+            'coach': "Coach - You're now getting motivated by your dedicated high school sports coach!",
+            'guidance_counselor': "Guidance Counselor - You're now discussing your concerns with the school counselor!",
+            'socratic_tutor': "Socratic Tutor - You're now learning through guided questioning!",
+            'mental_health_advocate': "Mental Health Advocate - You're now talking to a compassionate mental health professional!"
+        }
+
+        await query.edit_message_text(
+            text=f"You've switched from talking to your {
+                old_scenario} to your {scenario_descriptions[new_scenario]}\n\n"
+            f"Your conversation history has been updated to match. Enjoy chatting!"
+        )
 
 
 async def send_typing_action(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
@@ -220,18 +259,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['scenario'] = scenario
             context.user_data['messages'] = load_user_history(
                 user_id, scenario)
+            # Default to Anthropic
+            context.user_data['ai_provider'] = 'anthropic'
 
             commands = (
                 "Available commands:\n"
                 "/start - Begin a fresh conversation\n"
                 "/help - Learn more about Evander\n"
                 "/clear - Reset your conversation history\n"
-                "/scenario - Change who you're talking to"
+                "/scenario - Change who you're talking to\n"
+                "/provider - Switch between AI providers (Anthropic or Groq)"
             )
 
             message = (
                 f"You're now authenticated, Argi! Your current scenario is {
-                    scenario}. "
+                    scenario} "
+                f"and you're using the Anthropic AI provider. "
                 f"You can start chatting now.\n\n{commands}"
             )
 
@@ -244,6 +287,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scenario = load_user_scenario(user_id)
         context.user_data['scenario'] = scenario
         context.user_data['messages'] = load_user_history(user_id, scenario)
+        context.user_data['ai_provider'] = context.user_data.get(
+            'ai_provider', 'anthropic')
 
     context.user_data['messages'].append(
         {"role": "user", "content": user_message})
@@ -253,6 +298,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         scenario = context.user_data['scenario']
         system_message = SCENARIOS[scenario]
+
+        ai_provider = context.user_data.get('ai_provider', 'anthropic')
+        generate_response = get_generate_response(ai_provider)
 
         start_time = time.time()
         response = await generate_response(context.user_data['messages'], system_message)
@@ -303,6 +351,7 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("clear", clear_command))
     application.add_handler(CommandHandler("scenario", change_scenario))
+    application.add_handler(CommandHandler("provider", change_provider))
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button))
