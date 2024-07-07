@@ -77,7 +77,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['scenario'] = scenario
         context.user_data['messages'] = load_user_history(user_id, scenario)
         context.user_data['ai_provider'] = context.user_data.get(
-            'ai_provider', 'anthropic')
+            'ai_provider', 'groq')
 
         commands = (
             "🌟 Available commands:\n"
@@ -133,7 +133,7 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data['messages'] = []
     context.user_data['scenario'] = 'boyfriend'
-    context.user_data['ai_provider'] = 'anthropic'
+    context.user_data['ai_provider'] = 'groq'
 
     await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been reset. The AI provider has been set to Anthropic (default).")
 
@@ -181,15 +181,15 @@ async def change_provider(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     keyboard = [
-        [InlineKeyboardButton("Anthropic (Claude)", callback_data='anthropic'),
-         InlineKeyboardButton("Groq (LLaMA)", callback_data='groq')]
+        [InlineKeyboardButton("Groq (LLaMA)", callback_data='groq'),
+         InlineKeyboardButton("Anthropic (Claude)", callback_data='anthropic')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Choose your AI provider:\n\n"
-             "🧠 Anthropic (Claude): Known for its strong reasoning and instruction-following capabilities\n"
-             "🚀 Groq (LLaMA): Known for its fast inference and broad knowledge base\n\n"
+             "🚀 Groq (LLaMA): Known for its fast inference and broad knowledge base\n"
+             "🧠 Anthropic (Claude): Known for its strong reasoning and instruction-following capabilities\n\n"
              "Select an option to change your AI provider:",
         reply_markup=reply_markup
     )
@@ -259,8 +259,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['scenario'] = scenario
             context.user_data['messages'] = load_user_history(
                 user_id, scenario)
-            # Default to Anthropic
-            context.user_data['ai_provider'] = 'anthropic'
+            # Default to Groq
+            context.user_data['ai_provider'] = 'groq'
 
             commands = (
                 "Available commands:\n"
@@ -288,7 +288,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['scenario'] = scenario
         context.user_data['messages'] = load_user_history(user_id, scenario)
         context.user_data['ai_provider'] = context.user_data.get(
-            'ai_provider', 'anthropic')
+            'ai_provider', 'groq')
 
     context.user_data['messages'].append(
         {"role": "user", "content": user_message})
