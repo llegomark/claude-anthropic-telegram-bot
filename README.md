@@ -9,7 +9,7 @@ This Telegram bot was created as a fun and interactive chat companion for my dau
 
 ## Features
 - Powered by Claude 3.5 Sonnet, Anthropic's latest and most capable AI model
-- Multiple chat scenarios (Demon Slayer, Boyfriend, Best Friend, Mentor, Sibling, Coach, Guidance Counselor, Socratic Tutor)
+- Multiple chat scenarios (Demon Slayer, Boyfriend, Best Friend, Mentor, Sibling, Coach, Guidance Counselor, Socratic Tutor, Mental Health Advocate)
 - User authentication
 - Conversation history management
 - Dynamic scenario switching
