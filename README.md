@@ -1,6 +1,6 @@
 # claude-anthropic-telegram-bot
 
-This Telegram bot was created as a fun and interactive chat companion for my daughter, Argi. It uses the Anthropic API to generate responses and can switch between various scenarios, providing a diverse and engaging conversational experience.
+This Telegram bot was created as a fun and interactive chat companion for my daughter, Argi. It uses the Anthropic API with the Claude 3.5 Sonnet model to generate responses and can switch between various scenarios, providing a diverse and engaging conversational experience.
 
 ![Anthropic Claude Telegram Bot](/images/image1.png)
 ![Anthropic Claude Telegram Bot](/images/image2.png)
@@ -8,11 +8,22 @@ This Telegram bot was created as a fun and interactive chat companion for my dau
 **Note: This bot is not recommended for production use. It was built as a proof of concept and for personal enjoyment.**
 
 ## Features
+- Powered by Claude 3.5 Sonnet, Anthropic's latest and most capable AI model
 - Multiple chat scenarios (Demon Slayer, Boyfriend, Best Friend, Mentor, Sibling, Coach, Guidance Counselor, Socratic Tutor)
 - User authentication
 - Conversation history management
 - Dynamic scenario switching
 - Error handling and retry logic
+
+## About Claude 3.5 Sonnet
+This bot utilizes Claude 3.5 Sonnet, Anthropic's latest AI model. Claude 3.5 Sonnet offers:
+- Improved intelligence and performance across various tasks
+- Faster processing speed compared to previous models
+- Enhanced understanding of nuance, humor, and complex instructions
+- State-of-the-art vision capabilities for image analysis
+- Robust safety measures and privacy protections
+
+For more information about Claude 3.5 Sonnet, visit [Anthropic's website](https://www.anthropic.com/news/claude-3-5-sonnet).
 
 ## Prerequisites
 - Python 3.12+
@@ -47,7 +58,7 @@ This Telegram bot was created as a fun and interactive chat companion for my dau
 2. Start a conversation with the bot on Telegram.
 3. Use the `/start` command to begin and provide the secret authentication code.
 4. Use `/scenario` to switch between different chat scenarios.
-5. Enjoy conversing with the bot!
+5. Enjoy conversing with the bot powered by Claude 3.5 Sonnet!
 
 ## Commands
 - `/start`: Start a new conversation
