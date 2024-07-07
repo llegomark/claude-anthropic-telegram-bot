@@ -77,37 +77,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['messages'] = load_user_history(user_id, scenario)
 
         commands = (
-            "Available commands:\n"
-            "/start - Start a new conversation\n"
-            "/help - Show this help message\n"
-            "/clear - Clear all your conversation histories\n"
-            "/scenario - Change your current chat scenario"
+            "🌟 Available commands:\n"
+            "/start - Begin a fresh conversation\n"
+            "/help - Learn more about Claude\n"
+            "/clear - Reset your conversation history (use with caution!)\n"
+            "/scenario - Change who you're talking to"
         )
 
         message = (
-            f"Welcome back! Your current scenario is {scenario}. "
-            f"You can continue chatting with me now.\n\n{commands}"
+            f"Welcome back, Argi! 🎭\n\n"
+            f"You're currently chatting with your '{
+                scenario}'. Ready for some engaging conversation?\n\n"
+            f"Remember, you can change who you're talking to anytime with /scenario.\n\n"
+            f"{commands}\n\n"
+            f"Now, what would you like to chat about with your {scenario}? 😃"
         )
 
         await send_message_with_retry(context, update.effective_chat.id, message)
     else:
-        await send_message_with_retry(context, update.effective_chat.id, "Greetings! To get started, please provide the secret code.")
+        await send_message_with_retry(context, update.effective_chat.id, "Greetings, Argi! 🌟 To start chatting with Evander please provide the secret code. What's the password?")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_authenticated(user_id):
-        await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, but I can only assist authenticated users. Please provide the secret code first.")
+        await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, Argi, but I can only assist authenticated users. Please provide the secret code first.")
         return
 
     help_text = """
     Here are the available commands:
-    /start - Start a new conversation
+    /start - Begin a fresh conversation
     /help - Show this help message
-    /clear - Warning: This will clear all your conversation histories across all scenarios
-    /scenario - Change your current chat scenario
+    /clear - Warning: This will reset all your conversation histories across all scenarios
+    /scenario - Change who you're talking to
 
-    You can also send me any message, and I'll do my best to assist you based on the current scenario!
+    You can also send me any message, and I'll respond based on the current scenario!
     """
 
     await send_message_with_retry(context, update.effective_chat.id, help_text)
@@ -116,7 +120,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_authenticated(user_id):
-        await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, but I can only assist authenticated users. Please provide the secret code first.")
+        await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, Argi, but I can only assist authenticated users. Please provide the secret code first.")
         return
 
     # Archive all scenarios instead of clearing
@@ -127,13 +131,13 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['messages'] = []
     context.user_data['scenario'] = 'boyfriend'  # Reset to default scenario
 
-    await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been cleared.")
+    await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been reset.")
 
 
 async def change_scenario(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_authenticated(user_id):
-        await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, but I can only assist authenticated users. Please provide the secret code first.")
+        await send_message_with_retry(context, update.effective_chat.id, "I'm sorry, Argi, but I can only assist authenticated users. Please provide the secret code first.")
         return
 
     keyboard = [
@@ -149,16 +153,16 @@ async def change_scenario(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Choose a scenario to switch to:\n\n"
-             "🗡️ Demon Slayer: Become a brave warrior in early 20th century Japan\n"
-             "💑 Boyfriend: Experience life as a caring high school boyfriend\n"
-             "🤝 Best Friend: Chat with a supportive and fun-loving best friend\n"
-             "📚 Mentor: Interact with a wise and supportive high school teacher\n"
-             "👶 Sibling: Talk with your 6-year-old younger brother\n"
-             "🏋️ Coach: Get motivated by a dedicated high school sports coach\n"
-             "🧠 Guidance Counselor: Seek advice from the school counselor\n"
+        text="Choose who you'd like to talk to:\n\n"
+             "🗡️ Demon Slayer: Chat with a brave warrior from Taisho-era Japan\n"
+             "💑 Boyfriend: Talk to your caring high school boyfriend\n"
+             "🤝 Best Friend: Hang out with your supportive and fun-loving best friend, Tiffany\n"
+             "📚 Mentor: Seek wisdom from your high school teacher\n"
+             "👶 Sibling: Play with your 6-year-old younger brother\n"
+             "🏋️ Coach: Get motivated by your dedicated high school sports coach\n"
+             "🧠 Guidance Counselor: Discuss your concerns with the school counselor\n"
              "🎓 Socratic Tutor: Learn through guided questioning\n\n"
-             "Select an option to change your current scenario:",
+             "Select an option to change who you're talking to:",
         reply_markup=reply_markup
     )
 
@@ -175,20 +179,20 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_user_scenario(user_id, new_scenario)
 
     scenario_descriptions = {
-        'demon_slayer': "Demon Slayer - You're now a brave warrior in early 20th century Japan!",
-        'boyfriend': "Boyfriend - You're now experiencing life as a caring high school boyfriend!",
-        'best_friend': "Best Friend - You're now chatting with a supportive and fun-loving best friend!",
-        'mentor': "Mentor - You're now interacting with a wise and supportive high school teacher!",
-        'sibling': "Sibling - You're now talking with your 6-year-old younger brother!",
-        'coach': "Coach - You're now being motivated by a dedicated high school sports coach!",
-        'guidance_counselor': "Guidance Counselor - You're now seeking advice from the school counselor!",
+        'demon_slayer': "Demon Slayer - You're now chatting with a brave warrior from early 20th century Japan!",
+        'boyfriend': "Boyfriend - You're now talking to your caring high school boyfriend!",
+        'best_friend': "Best Friend - You're now hanging out with your supportive and fun-loving best friend, Tiffany!",
+        'mentor': "Mentor - You're now seeking wisdom from your high school teacher!",
+        'sibling': "Sibling - You're now playing with your 6-year-old younger brother!",
+        'coach': "Coach - You're now getting motivated by your dedicated high school sports coach!",
+        'guidance_counselor': "Guidance Counselor - You're now discussing your concerns with the school counselor!",
         'socratic_tutor': "Socratic Tutor - You're now learning through guided questioning!"
     }
 
     await query.edit_message_text(
-        text=f"Scenario changed from {old_scenario} to {
+        text=f"You've switched from talking to your {old_scenario} to your {
             scenario_descriptions[new_scenario]}\n\n"
-        f"Your conversation history has been switched to the new scenario. Enjoy chatting!"
+        f"Your conversation history has been updated to match. Enjoy chatting!"
     )
 
 
@@ -216,21 +220,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             commands = (
                 "Available commands:\n"
-                "/start - Start a new conversation\n"
-                "/help - Show this help message\n"
-                "/clear - Clear your conversation history\n"
-                "/scenario - Change the current chat scenario"
+                "/start - Begin a fresh conversation\n"
+                "/help - Learn more about Evander\n"
+                "/clear - Reset your conversation history\n"
+                "/scenario - Change who you're talking to"
             )
 
             message = (
-                f"You're now authenticated! Your current scenario is {
+                f"You're now authenticated, Argi! Your current scenario is {
                     scenario}. "
-                f"You can start chatting with me now.\n\n{commands}"
+                f"You can start chatting now.\n\n{commands}"
             )
 
             await send_message_with_retry(context, chat_id, message)
         else:
-            await send_message_with_retry(context, chat_id, "I'm sorry, but I can only assist authenticated users. Please provide the secret code.")
+            await send_message_with_retry(context, chat_id, "I'm sorry, Argi, but I can only assist authenticated users. Please provide the secret code.")
         return
 
     if 'messages' not in context.user_data:
@@ -272,11 +276,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except asyncio.TimeoutError:
         logger.error(f"API request timed out for user {user_id}")
-        await send_message_with_retry(context, chat_id, "I'm sorry, but it's taking me longer than usual to respond. Please try again in a moment.")
+        await send_message_with_retry(context, chat_id, "I'm sorry, Argi, but it's taking me longer than usual to respond. Please try again in a moment.")
     except Exception as e:
         logger.error(f"Error handling message for user {
                      user_id}: {str(e)}", exc_info=True)
-        error_message = "I apologize, but I've encountered an error while processing your request. "
+        error_message = "I apologize, Argi, but I've encountered an error while processing your request. "
         if isinstance(e, NetworkError):
             error_message += "There was a network error. Please check your connection and try again."
         elif isinstance(e, TimedOut):
@@ -288,7 +292,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Exception while handling an update:", exc_info=context.error)
-    error_message = "Sorry, something went wrong. Please try again later."
+    error_message = "Sorry, Argi, something went wrong. Please try again later."
     if isinstance(context.error, NetworkError):
         error_message = "Network error occurred. Please check your connection."
     elif isinstance(context.error, TimedOut):
