@@ -8,7 +8,7 @@ from telegram.error import NetworkError, TimedOut
 from dotenv import load_dotenv
 import os
 from anthropic_api import generate_response
-from utils import format_message
+from utils import format_message, truncate_message, split_long_message, sanitize_input
 from auth import (
     is_authenticated, authenticate_user, save_user_history, load_user_history, AUTH_CODE, save_user_scenario, load_user_scenario,
     archive_user_history
@@ -28,12 +28,6 @@ logger = logging.getLogger(__name__)
 API_TIMEOUT = 30
 TYPING_INTERVAL = 5
 
-
-def escape_markdown(text):
-    """Escape Markdown special characters."""
-    escape_chars = r'_*[]()~`>#+-=|{}.!'
-    return ''.join(f'\\{char}' if char in escape_chars else char for char in text)
-
 # Retry decorator for send_message
 
 
@@ -45,18 +39,30 @@ def escape_markdown(text):
 )
 async def send_message_with_retry(context, chat_id, text, reply_markup=None):
     try:
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=escape_markdown(text),
-            parse_mode='MarkdownV2',
-            reply_markup=reply_markup
-        )
+        formatted_text = format_message(text)
+        if len(formatted_text) > 4096:
+            parts = split_long_message(formatted_text)
+            for part in parts:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=part,
+                    parse_mode='MarkdownV2',
+                    reply_markup=reply_markup
+                )
+        else:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=formatted_text,
+                parse_mode='MarkdownV2',
+                reply_markup=reply_markup
+            )
     except Exception as e:
         logger.error(f"Error sending message: {str(e)}")
         # If Markdown parsing fails, send without parsing
+        truncated_text = truncate_message(text)
         await context.bot.send_message(
             chat_id=chat_id,
-            text=text,
+            text=truncated_text,
             reply_markup=reply_markup
         )
 
@@ -194,8 +200,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     await query.edit_message_text(
-        text=f"You've switched from talking to your {old_scenario} to your {
-            scenario_descriptions[new_scenario]}\n\n"
+        text=f"You've switched from talking to your {
+            old_scenario} to your {scenario_descriptions[new_scenario]}\n\n"
         f"Your conversation history has been updated to match. Enjoy chatting!"
     )
 
@@ -208,11 +214,11 @@ async def send_typing_action(context: ContextTypes.DEFAULT_TYPE, chat_id: int):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    user_message = update.message.text
+    user_message = sanitize_input(update.message.text)
     chat_id = update.effective_chat.id
 
-    logger.info(f"Received message from user {user_id}: {
-                user_message[:20]}...")  # Log truncated message
+    logger.info(f"Received message from user {
+                user_id}: {user_message[:20]}...")
 
     if not is_authenticated(user_id):
         if user_message == AUTH_CODE:
@@ -255,8 +261,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         scenario = context.user_data['scenario']
         system_message = SCENARIOS[scenario]
 
+        async def generate_ai_response():
+            return await generate_response(context.user_data['messages'], system_message)
+
+        async def save_interaction():
+            save_user_history(user_id, context.user_data['messages'], scenario)
+
         start_time = time.time()
-        response = await asyncio.wait_for(generate_response(context.user_data['messages'], system_message), timeout=API_TIMEOUT)
+        response, _ = await asyncio.gather(
+            generate_ai_response(),
+            save_interaction()
+        )
         end_time = time.time()
 
         typing_task.cancel()
@@ -267,16 +282,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if response_time > 15:
             await send_typing_with_message(context, chat_id, "I'm thinking deeply about this. Please give me a moment...")
 
-        formatted_response = format_message(response)
-
         context.user_data['messages'].append(
             {"role": "assistant", "content": response})
-        save_user_history(user_id, context.user_data['messages'], scenario)
 
-        await send_message_with_retry(context, chat_id, formatted_response)
+        await send_message_with_retry(context, chat_id, response)
 
-        logger.info(f"Sent response to user {user_id}: {
-                    formatted_response[:20]}...")  # Log truncated response
+        logger.info(f"Sent response to user {user_id}: {response[:20]}...")
 
     except asyncio.TimeoutError:
         logger.error(f"API request timed out for user {user_id}")
