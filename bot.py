@@ -11,7 +11,7 @@ from anthropic_api import generate_response
 from utils import format_message, truncate_message, split_long_message, sanitize_input
 from auth import (
     is_authenticated, authenticate_user, save_user_history, load_user_history, AUTH_CODE, save_user_scenario, load_user_scenario,
-    archive_user_history
+    archive_user_history, is_new_user
 )
 from scenarios import SCENARIOS
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -48,6 +48,14 @@ def get_user_name(user):
     if user.last_name:
         return f"{user.first_name} {user.last_name}"
     return user.first_name
+
+def get_common_actions_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("Change Scenario", callback_data='change_scenario'),
+         InlineKeyboardButton("Clear History", callback_data='clear_history')],
+        [InlineKeyboardButton("Help", callback_data='help')]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
 @retry(
     stop=stop_after_attempt(3),
@@ -101,23 +109,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data['scenario'] = scenario
         context.user_data['messages'] = load_user_history(user_id, scenario)
 
-        commands = (
-            "🌟 Available commands:\n"
-            "/start - Begin a fresh conversation\n"
-            "/help - Learn more about Evander\n"
-            "/clear - Reset your conversation history (use with caution!)\n"
-            "/scenario - Change who you're talking to"
-        )
-
         message = (
             f"Welcome back, {user_name}! 🎭\n\n"
             f"You're currently chatting with your '{scenario}'. Ready for some engaging conversation?\n\n"
-            f"Remember, you can change who you're talking to anytime with /scenario.\n\n"
-            f"{commands}\n\n"
+            f"Remember, you can change who you're talking to anytime with the 'Change Scenario' button below.\n\n"
             f"Now, what would you like to chat about with your {scenario}? 😃"
         )
 
-        await send_message_with_retry(context, update.effective_chat.id, message)
+        await send_message_with_retry(context, update.effective_chat.id, message, reply_markup=get_common_actions_keyboard())
     else:
         await send_message_with_retry(context, update.effective_chat.id, f"Greetings, {user_name}! 🌟 To start chatting with Evander please provide the secret code. What's the password?")
 
@@ -129,16 +128,15 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     help_text = """
-    Here are the available commands:
-    /start - Begin a fresh conversation
-    /help - Show this help message
-    /clear - Warning: This will reset all your conversation histories across all scenarios
-    /scenario - Change who you're talking to
+    Here are the available actions:
+    • Change Scenario - Switch to a different character to talk to
+    • Clear History - Reset your conversation history (use with caution!)
+    • Help - Show this help message
 
     You can also send me any message, and I'll respond based on the current scenario!
     """
 
-    await send_message_with_retry(context, update.effective_chat.id, help_text)
+    await send_message_with_retry(context, update.effective_chat.id, help_text, reply_markup=get_common_actions_keyboard())
 
 async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -153,7 +151,7 @@ async def clear_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['messages'] = []
     context.user_data['scenario'] = 'boyfriend'
 
-    await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been reset.")
+    await send_message_with_retry(context, update.effective_chat.id, "All your conversation histories across all scenarios have been reset.", reply_markup=get_common_actions_keyboard())
 
 async def change_scenario(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -195,29 +193,38 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    user_id = update.effective_user.id
-    new_scenario = query.data
-    old_scenario = context.user_data.get('scenario', 'boyfriend')
-    context.user_data['scenario'] = new_scenario
-    context.user_data['messages'] = load_user_history(user_id, new_scenario)
-    save_user_scenario(user_id, new_scenario)
+    if query.data == 'change_scenario':
+        await change_scenario(update, context)
+    elif query.data == 'clear_history':
+        await clear_command(update, context)
+    elif query.data == 'help':
+        await help_command(update, context)
+    else:
+        # Handle scenario changes
+        user_id = update.effective_user.id
+        new_scenario = query.data
+        old_scenario = context.user_data.get('scenario', 'boyfriend')
+        context.user_data['scenario'] = new_scenario
+        context.user_data['messages'] = load_user_history(user_id, new_scenario)
+        save_user_scenario(user_id, new_scenario)
 
-    scenario_descriptions = {
-        'demon_slayer': "Demon Slayer - You're now chatting with a brave warrior from early 20th century Japan!",
-        'boyfriend': "Boyfriend - You're now talking to your caring high school boyfriend!",
-        'best_friend': "Best Friend - You're now hanging out with your supportive and fun-loving best friend, Tiffany!",
-        'mentor': "Mentor - You're now seeking wisdom from your high school teacher!",
-        'sibling': "Sibling - You're now playing with your 6-year-old younger brother!",
-        'coach': "Coach - You're now getting motivated by your dedicated high school sports coach!",
-        'guidance_counselor': "Guidance Counselor - You're now discussing your concerns with the school counselor!",
-        'socratic_tutor': "Socratic Tutor - You're now learning through guided questioning!",
-        'mental_health_advocate': "Mental Health Advocate - You're now talking to a compassionate mental health professional!"
-    }
+        scenario_descriptions = {
+            'demon_slayer': "Demon Slayer - You're now chatting with a brave warrior from early 20th century Japan!",
+            'boyfriend': "Boyfriend - You're now talking to your caring high school boyfriend!",
+            'best_friend': "Best Friend - You're now hanging out with your supportive and fun-loving best friend, Tiffany!",
+            'mentor': "Mentor - You're now seeking wisdom from your high school teacher!",
+            'sibling': "Sibling - You're now playing with your 6-year-old younger brother!",
+            'coach': "Coach - You're now getting motivated by your dedicated high school sports coach!",
+            'guidance_counselor': "Guidance Counselor - You're now discussing your concerns with the school counselor!",
+            'socratic_tutor': "Socratic Tutor - You're now learning through guided questioning!",
+            'mental_health_advocate': "Mental Health Advocate - You're now talking to a compassionate mental health professional!"
+        }
 
-    await query.edit_message_text(
-        text=f"You've switched from talking to your {old_scenario} to your {scenario_descriptions[new_scenario]}\n\n"
-        f"Your conversation history has been updated to match. Enjoy chatting!"
-    )
+        await query.edit_message_text(
+            text=f"You've switched from talking to your {old_scenario} to your {scenario_descriptions[new_scenario]}\n\n"
+            f"Your conversation history has been updated to match. Enjoy chatting!",
+            reply_markup=get_common_actions_keyboard()
+        )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -234,20 +241,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data['scenario'] = scenario
             context.user_data['messages'] = load_user_history(user_id, scenario)
 
-            commands = (
-                "Available commands:\n"
-                "/start - Begin a fresh conversation\n"
-                "/help - Learn more about Evander\n"
-                "/clear - Reset your conversation history\n"
-                "/scenario - Change who you're talking to"
-            )
-
-            message = (
-                f"You're now authenticated, {user_name}! Your current scenario is {scenario}. "
-                f"You can start chatting now.\n\n{commands}"
-            )
-
-            await send_message_with_retry(context, chat_id, message)
+            if is_new_user(user_id):
+                welcome_message = (
+                    f"Welcome to Evander, {user_name}! 🎉\n\n"
+                    f"I'm an AI-powered bot created by Mark Llego, capable of taking on various roles to chat with you. "
+                    f"Your current scenario is '{scenario}'.\n\n"
+                    f"You can change who you're talking to anytime using the 'Change Scenario' button below. "
+                    f"Feel free to ask me anything or just chat casually!\n\n"
+                    f"Enjoy your time with Mark Llego's AI companion! 😊"
+                )
+                await send_message_with_retry(context, chat_id, welcome_message, reply_markup=get_common_actions_keyboard())
+            else:
+                message = (
+                    f"Welcome back, {user_name}! You're now authenticated. "
+                    f"Your current scenario is {scenario}. "
+                    f"You can start chatting now."
+                )
+                await send_message_with_retry(context, chat_id, message, reply_markup=get_common_actions_keyboard())
         else:
             await send_message_with_retry(context, chat_id, f"I'm sorry, {user_name}, but I can only assist authenticated users. Please provide the secret code.")
         return
